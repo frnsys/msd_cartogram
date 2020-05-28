@@ -40,7 +40,7 @@ for iso in ISOCHRONES:
 
         for name, key, path in SOURCES:
             tj = json.load(open(path))
-            for f in tqdm(tj['objects'][key]['geometries'], desc='Building topojson'):
+            for f in tqdm(tj['objects'][key]['geometries'], desc='Building topojson ({})'.format(name)):
                 state = f['properties']['name']
                 for k, agg in FIELDS.items():
                     vals = [zip_data[z][k] for z in states_zips[state]]
