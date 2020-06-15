@@ -12,12 +12,27 @@ for i, row in df.iterrows():
 
 FIELDS = {
     'SINGLEZCTAPOP': 'sum',
-    'SCI_allschools': 'median'
+    'SCI_allschools': 'median',
 }
 SOURCES = [
     ('real', 'states', 'src/states-10m.topojson'),
     ('hex', 'data', 'gen/cartogram/hex_states.topojson')
 ]
+
+
+all_years = pd.read_csv('src/master_05.01.2020.csv',
+        encoding='ISO-8859-1',
+        dtype={'YEAR': str, 'ZIP': str})
+all_years = all_years.groupby('YEAR')
+
+state_data = {}
+for year, df in all_years:
+    state_data[year] = {}
+    for fips, schools in df.groupby('FIPS'):
+        state = fips_states[fips]
+        state_data[year][state] = {
+            'ENROLLED': int(schools['ENROLLED'].sum())
+        }
 
 states_zips = defaultdict(set)
 ISOCHRONES = ['30min', '45min', '60min']
@@ -51,5 +66,7 @@ for iso in ISOCHRONES:
                         f['properties'][k] = 0
                     if f['properties'][k] is None or math.isnan(f['properties'][k]):
                         import ipdb; ipdb.set_trace()
+                for key, val in state_data[str(year)].get(state, {}).items():
+                    f['properties'][key] = val
             with open('gen/cartogram/{}.Y{}.I{}.topojson'.format(name, year, iso), 'w') as f:
                 json.dump(tj, f)

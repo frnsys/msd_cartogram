@@ -16,6 +16,9 @@ let isos = ['30min', '45min', '60min'];
 let keys = types.flatMap((type) => years.flatMap((year) => isos.flatMap((iso) => `${type}.Y${year}.I${iso}`)));
 let ratios = {};
 
+// Have no schools/missing data, so skip
+const skip = ['Commonwealth of the Northern Mariana Islands', 'United States Virgin Islands'];
+
 let folders = {};
 let isoFolders = {};
 types.forEach((type) => {
@@ -26,18 +29,20 @@ types.forEach((type) => {
 });
 
 // const sizeProp = 'SINGLEZCTAPOP';
-const sizeProp = 'ENROLLED_allschools';
+const sizeProp = 'ENROLLED';
 const sizeLabel = sizeProp == 'SINGLEZCTAPOP' ? 'Population' : 'Enrollment';
+const sizeLegendVals = sizeProp == 'SINGLEZCTAPOP' ? [1e6, 5e6, 10e6] : [100e3, 500e3, 1e6];
+const sizeDefault = sizeProp == 'SINGLEZCTAPOP' ? 1e6 : 1;
 
 /* https://stackoverflow.com/a/10601315 */
-function intToString (value) {
+function intToString(value) {
     var suffixes = ["", "k", "m", "b","t"];
     var suffixNum = Math.floor((""+value).length/3);
     var shortValue = parseFloat((suffixNum != 0 ? (value / Math.pow(1000,suffixNum)) : value).toPrecision(2));
     if (shortValue % 1 != 0) {
         shortValue = shortValue.toFixed(1);
     }
-    return shortValue+suffixes[suffixNum];
+    return (shortValue+suffixes[suffixNum]).replace(/^0+/, '');
 }
 
 function renderNextCartogram() {
@@ -112,20 +117,21 @@ function renderCartogram(key) {
             .iterations(state.iterations) // distort all features
             (state.topoJson, topoObject.geometries).features;
         features.forEach((feat) => {
-          let area = state.cartogram.path.area(feat);
-          let ratio = area/getSizeProp(feat);
-          ratioTotal += ratio;
-          // console.log(`${feat.properties['name']} area:${area} sizeProp:${getSizeProp(feat)} ratio:${ratio}`);
+          if (!skip.includes(feat.properties['name'])) {
+            let area = state.cartogram.path.area(feat);
+            let ratio = area/getSizeProp(feat);
+            ratioTotal += ratio;
+            console.log(`${feat.properties['name']} area:${area} sizeProp:${getSizeProp(feat)} ratio:${ratio}`);
+          }
         });
         ratios[hex] = ratioTotal/features.length;
       }
-      let legendVals = [1e6, 5e6, 10e6];
-      let startX = hex ? 300: 325;
+      let startX = hex ? 290: 305;
       let x = startX;
       let y = topY + 10;
       let xPadding = 5;
       let side;
-      legendVals.forEach((v) => {
+      sizeLegendVals.forEach((v) => {
         let area = ratios[hex] * v;
         side = Math.sqrt(area);
         let rect = d3.select('svg').append('rect')
@@ -139,7 +145,7 @@ function renderCartogram(key) {
           .attr('dominant-baseline', 'middle')
           .attr('dx', x + side/2)
           .attr('dy', y + side/2)
-          .style('font-size', '10px')
+          .style('font-size', '9px')
           .text(intToString(v));
         x += side + xPadding;
       });
@@ -156,7 +162,7 @@ function renderCartogram(key) {
 
     function getSizeProp({ properties: p }) {
       // Must be non-zero
-      return p[sizeProp] == 0 ? 1e6 : p[sizeProp];
+      return p[sizeProp] == 0 || p[sizeProp] == undefined ? sizeDefault : p[sizeProp];
     }
 
     let gradient = d3.select('svg').append('defs')
